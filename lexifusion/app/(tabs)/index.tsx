@@ -22,8 +22,6 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ensureAuth } from '@/lib/auth';
 import {
   apiSearchWords,
-  apiGetRandomPair,
-  apiResolveFusionMulti,
   apiResolveFusionByText,
   WordItem,
   FusionDTO,
@@ -339,37 +337,30 @@ export default function HomeScreen() {
     return result;
   }, [allWords, category, query]);
 
-  // Fusion logic — supports both real and virtual words, returns multi results
+  // Fusion logic — 统一使用文本 API（Vercel Serverless Function）
   const doFusion = useCallback(
     async (wA: SlotWord, wB: SlotWord) => {
       setResolving(true);
       setLastFusions([]);
       try {
-        let fusions: FusionDTO[];
-        const aIsVirtual = !!wA.isVirtual;
-        const bIsVirtual = !!wB.isVirtual;
-
-        if (aIsVirtual || bIsVirtual) {
-          // At least one word is virtual (from a previous fusion) — use text API
-          fusions = await apiResolveFusionByText(
-            {
-              word: wA.word,
-              meaning: wA.virtualMeaning || wA.meaning,
-              category: wA.virtualCategory || wA.category || 'other',
-            },
-            {
-              word: wB.word,
-              meaning: wB.virtualMeaning || wB.meaning,
-              category: wB.virtualCategory || wB.category || 'other',
-            }
-          );
-        } else {
-          // Both are real DB words — use ID-based API
-          fusions = await apiResolveFusionMulti(wA.id, wB.id);
-        }
+        // 统一使用文本 API，直接调用 DeepSeek
+        const fusions = await apiResolveFusionByText(
+          {
+            word: wA.word,
+            meaning: wA.virtualMeaning || wA.meaning,
+            category: wA.virtualCategory || wA.category || 'other',
+          },
+          {
+            word: wB.word,
+            meaning: wB.virtualMeaning || wB.meaning,
+            category: wB.virtualCategory || wB.category || 'other',
+          }
+        );
 
         setLastFusions(fusions);
-        // Record the first discovery
+        // Record the first discovery (本地存储)
+        const aIsVirtual = !!wA.isVirtual;
+        const bIsVirtual = !!wB.isVirtual;
         if (fusions.length > 0 && !aIsVirtual && !bIsVirtual) {
           addDiscovered(fusions[0], wA.id, wB.id).catch(() => {});
         }

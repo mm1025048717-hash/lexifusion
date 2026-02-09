@@ -14,7 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useThemeDetail } from '@/hooks/useThemes';
 import { useFusionStore } from '@/hooks/useFusionStore';
-import { apiResolveFusion, FusionDTO } from '@/lib/api';
+import { apiResolveFusionByText, FusionDTO } from '@/lib/api';
 import { getFusionOrCreative, getThemeById as getLocalThemeById } from '@/data/themes';
 import { WordBubbleView } from '@/components/WordBubbleView';
 import { FusionResultCard } from '@/components/FusionResultCard';
@@ -213,10 +213,16 @@ export default function LabScreen() {
     setResolving(true);
 
     try {
-      const fusion = await apiResolveFusion(idA, idB);
+      // 使用文本 API（Vercel Serverless Function + DeepSeek）
+      const fusions = await apiResolveFusionByText(
+        { word: wA.word, meaning: wA.meaning ?? '', category: wA.category ?? 'other' },
+        { word: wB.word, meaning: wB.meaning ?? '', category: wB.category ?? 'other' }
+      );
+      const fusion = fusions[0];
       setLastFusion(fusion);
       addDiscovered(fusion, idA, idB).catch(() => {});
     } catch {
+      // 本地回退
       const localTheme = getLocalThemeById(themeId ?? '');
       if (localTheme) {
         const localFusion = getFusionOrCreative(localTheme, idA, idB);

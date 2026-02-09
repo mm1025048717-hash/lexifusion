@@ -13,7 +13,8 @@ const DEV_API_BASE = Platform.select({
   default: 'http://localhost:3001', // change to your machine IP for real device testing
 });
 
-const PROD_API_BASE = 'https://your-production-api.com'; // TODO: replace in production
+// 生产环境使用相对路径（同域名 Vercel Serverless Function）
+const PROD_API_BASE = '';
 
 const API_BASE = __DEV__ ? DEV_API_BASE : PROD_API_BASE;
 
@@ -210,7 +211,8 @@ export async function apiResolveFusionByText(
   wordA: { word: string; meaning: string; category: string },
   wordB: { word: string; meaning: string; category: string }
 ): Promise<FusionDTO[]> {
-  const data = await request<{ fusions: FusionDTO[]; fusion: FusionDTO }>('/api/fusions/resolve-by-text', {
+  // 使用 Vercel Serverless Function
+  const data = await request<{ fusions: FusionDTO[]; fusion: FusionDTO }>('/api/fusion', {
     method: 'POST',
     body: { wordA, wordB },
   });
