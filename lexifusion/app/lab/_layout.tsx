@@ -12,9 +12,7 @@ export default function LabLayout() {
       screenOptions={{
         headerStyle: {
           backgroundColor: c.background,
-          borderBottomWidth: 1,
-          borderBottomColor: c.borderSubtle,
-        },
+        } as any,
         headerTintColor: c.primary,
         headerTitleStyle: { ...Typography.headline, color: c.text },
         headerShadowVisible: false,

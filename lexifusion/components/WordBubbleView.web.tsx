@@ -1,90 +1,128 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, Pressable, Image } from 'react-native';
+import React from 'react';
+import { View, Text, StyleSheet, Pressable, Platform } from 'react-native';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
-import { Radius } from '@/constants/Design';
+import { Radius, Spacing } from '@/constants/Design';
 import type { WordBubble } from '@/data/themes';
-import { getImageForWord } from '@/data/themes';
-
-const BUBBLE_SIZE = 66;
-const BUBBLE_IMG_SIZE = 32;
 
 type WordBubbleViewProps = {
   word: WordBubble;
   selected?: boolean;
   onPress: () => void;
   index?: number;
+  /** 紧凑模式 - 网格中使用 */
+  compact?: boolean;
 };
 
-export function WordBubbleView({ word, selected, onPress }: WordBubbleViewProps) {
+export function WordBubbleView({ word, selected, onPress, compact }: WordBubbleViewProps) {
   const colorScheme = useColorScheme();
   const c = Colors[colorScheme ?? 'light'];
-  const [imgError, setImgError] = useState(false);
-  const imageUri = word.imageUrl ?? getImageForWord(word.word);
 
   return (
-    <View>
-      <Pressable
-        onPress={onPress}
-        style={({ pressed }) => [
-          styles.bubble,
-          {
-            backgroundColor: selected ? c.primaryLight : c.bubbleBg,
-            borderColor: selected ? c.primary : c.bubbleBorder,
-            borderWidth: selected ? 2 : 1,
-            opacity: pressed ? 0.92 : 1,
-            transform: [{ scale: pressed ? 0.96 : 1 }],
-          },
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.bubble,
+        compact && styles.bubbleCompact,
+        {
+          backgroundColor: selected ? c.bubbleBgActive : c.card,
+          borderColor: selected ? c.primary : c.borderSubtle,
+          borderWidth: selected ? 2 : 1,
+          opacity: pressed ? 0.88 : 1,
+          transform: [{ scale: pressed ? 0.93 : selected ? 1.03 : 1 }],
+        },
+      ]}
+    >
+      {/* Emoji icon */}
+      <Text style={[styles.icon, compact && styles.iconCompact]}>
+        {word.icon || word.word.charAt(0).toUpperCase()}
+      </Text>
+
+      {/* Word */}
+      <Text
+        style={[
+          styles.word,
+          compact && styles.wordCompact,
+          { color: selected ? c.primaryDeep : c.text },
         ]}
+        numberOfLines={1}
       >
-        {!imgError && imageUri ? (
-          <Image
-            source={{ uri: imageUri }}
-            style={[styles.bubbleImg, { width: BUBBLE_IMG_SIZE, height: BUBBLE_IMG_SIZE }]}
-            resizeMode="cover"
-            onError={() => setImgError(true)}
-          />
-        ) : (
-          <View style={[styles.bubbleImgPlaceholder, { backgroundColor: c.borderSubtle }]}>
-            <Text style={[styles.bubbleImgFallback, { color: c.textSecondary }]} numberOfLines={1}>
-              {word.word.charAt(0).toUpperCase()}
-            </Text>
-          </View>
-        )}
-        <Text style={[styles.word, { color: c.text }]} numberOfLines={1}>
-          {word.word}
+        {word.word}
+      </Text>
+
+      {/* Meaning (only in non-compact) */}
+      {!compact && (
+        <Text
+          style={[styles.meaning, { color: c.textTertiary }]}
+          numberOfLines={1}
+        >
+          {word.meaning}
         </Text>
-      </Pressable>
-    </View>
+      )}
+
+      {/* Selection indicator */}
+      {selected && (
+        <View style={[styles.checkmark, { backgroundColor: c.primary }]}>
+          <Text style={styles.checkmarkText}>{'✓'}</Text>
+        </View>
+      )}
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
   bubble: {
-    width: BUBBLE_SIZE,
-    height: BUBBLE_SIZE,
-    borderRadius: Radius.full,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 4,
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+    borderRadius: Radius.lg,
+    position: 'relative',
+    minWidth: 80,
+    ...(Platform.OS === 'web'
+      ? { cursor: 'pointer' as any, transition: 'all 0.18s cubic-bezier(.4,0,.2,1)' }
+      : {}),
   },
-  bubbleImg: {
-    width: BUBBLE_IMG_SIZE,
-    height: BUBBLE_IMG_SIZE,
-    borderRadius: Radius.sm,
+  bubbleCompact: {
+    minWidth: 68,
+    paddingVertical: Spacing.xs,
+    paddingHorizontal: Spacing.xs,
+    borderRadius: Radius.md,
+  },
+  icon: {
+    fontSize: 30,
+    marginBottom: 4,
+  },
+  iconCompact: {
+    fontSize: 24,
     marginBottom: 2,
   },
-  bubbleImgPlaceholder: {
-    width: BUBBLE_IMG_SIZE,
-    height: BUBBLE_IMG_SIZE,
-    borderRadius: Radius.sm,
-    marginBottom: 2,
+  word: {
+    fontSize: 12,
+    fontWeight: '600',
+    letterSpacing: 0.1,
+  },
+  wordCompact: {
+    fontSize: 11,
+  },
+  meaning: {
+    fontSize: 10,
+    marginTop: 1,
+    opacity: 0.7,
+  },
+  checkmark: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  bubbleImgFallback: {
-    fontSize: 16,
+  checkmarkText: {
+    color: '#FFF',
+    fontSize: 10,
     fontWeight: '700',
   },
-  word: { fontSize: 10, fontWeight: '600' },
 });

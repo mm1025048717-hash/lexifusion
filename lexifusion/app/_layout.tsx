@@ -12,6 +12,7 @@ if (Platform.OS !== 'web') {
 }
 
 import { useColorScheme } from '@/components/useColorScheme';
+import { ensureAuth } from '@/lib/auth';
 
 export {
   // Catch any errors thrown by the Layout component.
@@ -31,6 +32,11 @@ export default function RootLayout() {
     SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
     ...FontAwesome.font,
   });
+
+  // Initialize auth early (non-blocking)
+  useEffect(() => {
+    ensureAuth().catch(() => {});
+  }, []);
 
   // Expo Router uses Error Boundaries to catch errors in the navigation tree.
   useEffect(() => {

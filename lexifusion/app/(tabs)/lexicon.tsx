@@ -1,8 +1,9 @@
 import { useCallback } from 'react';
-import { StyleSheet, ScrollView, View, Text, RefreshControl } from 'react-native';
+import { StyleSheet, ScrollView, View, Text, RefreshControl, Platform } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Colors from '@/constants/Colors';
-import { Spacing, Typography } from '@/constants/Design';
+import { Spacing, Typography, Radius } from '@/constants/Design';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useFusionStore } from '@/hooks/useFusionStore';
 import { FusionLexiconCard } from '@/components/FusionLexiconCard';
@@ -10,45 +11,53 @@ import { FusionLexiconCard } from '@/components/FusionLexiconCard';
 export default function LexiconScreen() {
   const colorScheme = useColorScheme();
   const c = Colors[colorScheme ?? 'light'];
-  const { discovered, favoriteIds, loading, refresh, toggleFavorite } = useFusionStore();
+  const insets = useSafeAreaInsets();
+  const { discovered, loading, refresh, toggleFavorite } = useFusionStore();
 
   useFocusEffect(
-    useCallback(() => {
-      refresh();
-    }, [refresh])
+    useCallback(() => { refresh(); }, [refresh])
   );
+
+  const topPad = Platform.OS === 'web' ? Spacing.lg : insets.top + Spacing.xs;
 
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: c.background }]}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[styles.content, { paddingTop: topPad }]}
       refreshControl={
         <RefreshControl refreshing={loading} onRefresh={refresh} tintColor={c.primary} />
       }
       showsVerticalScrollIndicator={false}
     >
-      <Text style={[styles.title, { color: c.primaryDark }]}>图鉴 Lexicon</Text>
-      <Text style={[styles.subtitle, { color: c.textSecondary }]}>
-        你发现的融合会出现在这里 / Your discovered fusions will appear here.
-      </Text>
+      {/* Header */}
+      <View style={styles.header}>
+        <View style={styles.titleRow}>
+          <Text style={[styles.title, { color: c.text }]}>图鉴</Text>
+          {discovered.length > 0 && (
+            <View style={[styles.badge, { backgroundColor: c.tagBg }]}>
+              <Text style={[styles.badgeText, { color: c.tagText }]}>{discovered.length}</Text>
+            </View>
+          )}
+        </View>
+        <Text style={[styles.subtitle, { color: c.textTertiary }]}>
+          你发现的融合词汇
+        </Text>
+      </View>
 
       {discovered.length === 0 ? (
         <View style={styles.empty}>
-          <Text style={[styles.emptyText, { color: c.textTertiary }]}>
-            暂无发现 · 去实验室选两个气泡融合吧
-          </Text>
-          <Text style={[styles.emptyTextEn, { color: c.textTertiary }]}>
-            No fusions yet. Go to the Lab and fuse two bubbles.
-          </Text>
+          <Text style={styles.emptyIcon}>{'📖'}</Text>
+          <Text style={[styles.emptyTitle, { color: c.textSecondary }]}>暂无发现</Text>
+          <Text style={[styles.emptyHint, { color: c.textTertiary }]}>去融合页选两个词开始吧</Text>
         </View>
       ) : (
         <View style={styles.list}>
-          {discovered.map((fusion) => (
+          {discovered.map((item) => (
             <FusionLexiconCard
-              key={fusion.id}
-              fusion={fusion}
-              isFavorite={favoriteIds.includes(fusion.id)}
-              onToggleFavorite={() => toggleFavorite(fusion.id)}
+              key={item.discoveryId}
+              fusion={item}
+              isFavorite={item.isFavorite}
+              onToggleFavorite={() => toggleFavorite(item.discoveryId)}
             />
           ))}
         </View>
@@ -60,32 +69,46 @@ export default function LexiconScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: {
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.xl,
-    paddingBottom: Spacing.xxl,
+    paddingHorizontal: Spacing.md,
+    paddingBottom: 100,
+  },
+  header: {
+    paddingVertical: Spacing.sm,
+    paddingHorizontal: Spacing.xxs,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.xs,
   },
   title: {
-    ...Typography.largeTitle,
+    fontSize: 28,
+    fontWeight: '700',
     letterSpacing: -0.5,
-    marginBottom: Spacing.xs,
+  },
+  badge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: Radius.full,
+  },
+  badgeText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
   subtitle: {
-    ...Typography.subhead,
-    marginBottom: Spacing.lg,
+    fontSize: 13,
+    marginTop: 2,
   },
   empty: {
-    paddingVertical: Spacing.xxl,
     alignItems: 'center',
+    paddingVertical: 80,
+    gap: 6,
   },
-  emptyText: {
-    ...Typography.subhead,
-    marginBottom: 4,
-  },
-  emptyTextEn: {
-    fontSize: 12,
-    opacity: 0.85,
-  },
+  emptyIcon: { fontSize: 36, opacity: 0.3 },
+  emptyTitle: { fontSize: 15, fontWeight: '500' },
+  emptyHint: { fontSize: 12 },
   list: {
-    paddingTop: Spacing.xs,
+    gap: Spacing.sm,
+    marginTop: Spacing.sm,
   },
 });

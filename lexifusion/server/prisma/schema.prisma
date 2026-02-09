@@ -1,0 +1,113 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─── 用户 ───────────────────────────────────────────
+model User {
+  id           String   @id @default(uuid())
+  deviceId     String   @unique @map("device_id")
+  email        String?  @unique
+  nickname     String?
+  createdAt    DateTime @default(now()) @map("created_at")
+  lastActiveAt DateTime @default(now()) @map("last_active_at")
+
+  discoveries UserDiscovery[]
+  favorites   UserFavorite[]
+
+  @@map("users")
+}
+
+// ─── 主题 ───────────────────────────────────────────
+model Theme {
+  id          String  @id
+  name        String
+  nameEn      String  @map("name_en")
+  description String
+  coverEmoji  String  @map("cover_emoji")
+  sortOrder   Int     @default(0) @map("sort_order")
+  isActive    Boolean @default(true) @map("is_active")
+
+  words Word[]
+
+  @@map("themes")
+}
+
+// ─── 单词/气泡 ─────────────────────────────────────
+model Word {
+  id       String  @id
+  themeId  String  @map("theme_id")
+  word     String
+  phonetic String?
+  meaning  String
+  icon     String?
+  imageUrl String? @map("image_url")
+  category String? // animal, food, object, place, abstract, nature, other
+
+  theme         Theme          @relation(fields: [themeId], references: [id], onDelete: Cascade)
+  fusionsAsA    FusionRule[]   @relation("wordA")
+  fusionsAsB    FusionRule[]   @relation("wordB")
+
+  @@map("words")
+}
+
+// ─── 融合规则（预设） ───────────────────────────────
+model FusionRule {
+  id             String  @id
+  wordAId        String  @map("word_a_id")
+  wordBId        String  @map("word_b_id")
+  result         String
+  meaning        String
+  type           String  // compound, phrase, creative
+  example        String?
+  icon           String?
+  concept        String?
+  suggestedWords String? @map("suggested_words") // JSON string: string[]
+  association    String?
+  imageUrl       String? @map("image_url")
+  imageUrls      String? @map("image_urls") // JSON string: string[]
+
+  wordA       Word            @relation("wordA", fields: [wordAId], references: [id], onDelete: Cascade)
+  wordB       Word            @relation("wordB", fields: [wordBId], references: [id], onDelete: Cascade)
+  discoveries UserDiscovery[]
+
+  @@unique([wordAId, wordBId])
+  @@map("fusion_rules")
+}
+
+// ─── 用户发现记录 ───────────────────────────────────
+model UserDiscovery {
+  id           String   @id @default(uuid())
+  userId       String   @map("user_id")
+  fusionRuleId String?  @map("fusion_rule_id") // null if creative
+  wordAId      String   @map("word_a_id")
+  wordBId      String   @map("word_b_id")
+  isCreative   Boolean  @default(false) @map("is_creative")
+  creativeData String?  @map("creative_data") // JSON string for creative fusions
+  discoveredAt DateTime @default(now()) @map("discovered_at")
+
+  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fusionRule FusionRule?  @relation(fields: [fusionRuleId], references: [id], onDelete: SetNull)
+  favorites  UserFavorite[]
+
+  @@unique([userId, wordAId, wordBId])
+  @@map("user_discoveries")
+}
+
+// ─── 收藏 ───────────────────────────────────────────
+model UserFavorite {
+  id          String   @id @default(uuid())
+  userId      String   @map("user_id")
+  discoveryId String   @map("discovery_id")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  user      User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  discovery UserDiscovery @relation(fields: [discoveryId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, discoveryId])
+  @@map("user_favorites")
+}

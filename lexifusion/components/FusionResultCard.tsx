@@ -1,200 +1,173 @@
-import React, { useMemo, useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
   StyleSheet,
   Pressable,
-  FlatList,
-  ScrollView,
-  Image,
   Platform,
-  useWindowDimensions,
-  type ListRenderItem,
 } from 'react-native';
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
-import { Spacing, Radius, Typography, cardShadow } from '@/constants/Design';
-import type { FusionResult } from '@/data/themes';
-import { getImageForWord } from '@/data/themes';
+import { Spacing, Radius, Typography, elevatedShadow } from '@/constants/Design';
 
-const CARD_PADDING = Spacing.lg;
-const IMG_HEIGHT = 180;
-const SLIDE_GAP = Spacing.sm;
+/** Generic fusion data shape */
+export type FusionData = {
+  result: string;
+  meaning: string;
+  type: string;
+  icon?: string | null;
+  concept?: string | null;
+  suggestedWords?: string[] | null;
+  association?: string | null;
+  example?: string | null;
+  etymology?: string | null;
+  memoryTip?: string | null;
+  [key: string]: any;
+};
 
 type FusionResultCardProps = {
-  fusion: FusionResult;
+  fusion: FusionData;
   onClose?: () => void;
+  /** Called when user wants to use this fusion result for further fusion */
+  onUseFusion?: (fusion: FusionData) => void;
 };
 
-export type FusionSlide = {
-  id: string;
-  word: string;
-  meaning?: string;
-  imageUrl: string;
-};
-
-function typeLabel(type: FusionResult['type']) {
+function typeLabel(type: string) {
   switch (type) {
     case 'compound': return '复合词 Compound';
-    case 'phrase': return '场景搭配 Phrase';
-    case 'creative': return '概念融合 Concept Fusion';
+    case 'phrase': return '短语 Phrase';
+    case 'creative': return '联想 Creative';
     default: return '融合 Fusion';
   }
 }
 
-function buildSlides(fusion: FusionResult): FusionSlide[] {
-  const isCreative = fusion.type === 'creative';
-  const mainMeaning = isCreative ? fusion.concept : fusion.meaning;
-  const slides: FusionSlide[] = [
-    {
-      id: 'main',
-      word: fusion.result,
-      meaning: mainMeaning,
-      imageUrl: fusion.imageUrl ?? getImageForWord(fusion.result),
-    },
-  ];
-  (fusion.suggestedWords ?? []).forEach((w, i) => {
-    slides.push({
-      id: `suggest-${i}-${w}`,
-      word: w,
-      imageUrl: fusion.imageUrls?.[i] ?? getImageForWord(w),
-    });
-  });
-  return slides;
+function typeColor(type: string) {
+  switch (type) {
+    case 'compound': return { bg: '#DBEAFE', text: '#1D4ED8' };
+    case 'phrase': return { bg: '#FEF3C7', text: '#B45309' };
+    default: return { bg: '#F0FDF4', text: '#16A34A' };
+  }
 }
 
-export function FusionResultCard({ fusion, onClose }: FusionResultCardProps) {
-  const { width: winWidth } = useWindowDimensions();
+export function FusionResultCard({ fusion, onClose, onUseFusion }: FusionResultCardProps) {
   const colorScheme = useColorScheme();
   const c = Colors[colorScheme ?? 'light'];
-  const shadow = cardShadow(colorScheme ?? 'light');
-  const slides = useMemo(() => buildSlides(fusion), [fusion]);
-  const [index, setIndex] = useState(0);
-  const [imgErrors, setImgErrors] = useState<Set<string>>(() => new Set());
-
-  const slideWidth = winWidth - CARD_PADDING * 2 - Spacing.lg * 2;
-  const slideStep = slideWidth + SLIDE_GAP;
-
-  const onScroll = (e: { nativeEvent: { contentOffset: { x: number } } }) => {
-    const i = Math.round(e.nativeEvent.contentOffset.x / slideStep);
-    if (i !== index && i >= 0 && i < slides.length) setIndex(i);
-  };
-
-  const getItemLayout = (_: FusionSlide[] | null, idx: number) => ({
-    length: slideStep,
-    offset: slideStep * idx,
-    index: idx,
-  });
-
-  const onSlideImageError = (id: string) => {
-    setImgErrors((prev) => new Set(prev).add(id));
-  };
-
-  const renderSlideContent = (item: FusionSlide) => {
-    const showPlaceholder = !item.imageUrl || imgErrors.has(item.id);
-    return (
-      <View style={[styles.slide, { width: slideWidth }]}>
-        {showPlaceholder ? (
-          <View style={[styles.imgWrap, styles.imgWrapPlaceholder, { backgroundColor: c.borderSubtle }]}>
-            <Text style={[styles.imgPlaceholderText, { color: c.textSecondary }]} numberOfLines={2}>
-              {item.word}
-            </Text>
-          </View>
-        ) : (
-          <View style={[styles.imgWrap, { backgroundColor: c.borderSubtle }]}>
-            <Image
-              source={{ uri: item.imageUrl }}
-              style={styles.img}
-              resizeMode="cover"
-              onError={() => onSlideImageError(item.id)}
-            />
-          </View>
-        )}
-        <Text style={[styles.slideWord, { color: c.text }]}>{item.word}</Text>
-        {item.meaning ? (
-          <Text style={[styles.slideMeaning, { color: c.textSecondary }]} numberOfLines={2}>
-            {item.meaning}
-          </Text>
-        ) : null}
-      </View>
-    );
-  };
-
-  const renderSlide: ListRenderItem<FusionSlide> = ({ item }) => renderSlideContent(item);
-
-  const isWeb = Platform.OS === 'web';
-  const carouselContent = isWeb ? (
-    <ScrollView
-      horizontal
-      pagingEnabled
-      showsHorizontalScrollIndicator={false}
-      onMomentumScrollEnd={(e) => onScroll(e as Parameters<typeof onScroll>[0])}
-      onScrollEndDrag={(e) => onScroll(e as Parameters<typeof onScroll>[0])}
-      decelerationRate="fast"
-      snapToInterval={slideStep}
-      snapToAlignment="start"
-      contentContainerStyle={styles.flatListContent}
-      style={[styles.flatList, { width: slideWidth }]}
-    >
-      {slides.map((item) => (
-        <View key={item.id} style={{ width: slideStep }}>{renderSlideContent(item)}</View>
-      ))}
-    </ScrollView>
-  ) : (
-    <FlatList
-      data={slides}
-      renderItem={renderSlide}
-      keyExtractor={(item) => item.id}
-      horizontal
-      pagingEnabled
-      showsHorizontalScrollIndicator={false}
-      onMomentumScrollEnd={onScroll}
-      onScrollEndDrag={onScroll}
-      decelerationRate="fast"
-      snapToInterval={slideStep}
-      snapToAlignment="start"
-      getItemLayout={getItemLayout}
-      contentContainerStyle={styles.flatListContent}
-      style={[styles.flatList, { width: slideWidth }]}
-    />
-  );
+  const shadow = elevatedShadow(colorScheme ?? 'light');
+  const tc = typeColor(fusion.type);
+  const isAI = !!(fusion.etymology || fusion.memoryTip);
 
   return (
-    <View style={[styles.card, { backgroundColor: c.card, ...shadow }]}>
-      <View style={[styles.header, { borderBottomColor: c.borderSubtle }]}>
-        {fusion.icon ? <Text style={styles.icon}>{fusion.icon}</Text> : null}
-        <View style={styles.headerText}>
-          <Text style={[styles.badge, { color: c.textTertiary }]}>
-            {typeLabel(fusion.type)}
-          </Text>
+    <View style={[styles.card, { backgroundColor: c.card, borderColor: c.borderSubtle, ...shadow }]}>
+      {/* Close button */}
+      {onClose ? (
+        <Pressable onPress={onClose} hitSlop={16} style={styles.closeBtn}>
+          <Text style={[styles.closeText, { color: c.textTertiary }]}>{'×'}</Text>
+        </Pressable>
+      ) : null}
+
+      {/* Hero: Big Emoji + Result Word */}
+      <View style={styles.hero}>
+        <View style={[styles.emojiCircle, { backgroundColor: c.bubbleBg }]}>
+          <Text style={styles.heroEmoji}>{fusion.icon || '✨'}</Text>
         </View>
-        {onClose ? (
-          <Pressable onPress={onClose} hitSlop={12} style={styles.closeBtn}>
-            <Text style={{ color: c.textTertiary, fontSize: 22 }}>×</Text>
-          </Pressable>
-        ) : null}
+        <Text style={[styles.heroWord, { color: c.text }]}>{fusion.result}</Text>
+        <Text style={[styles.heroMeaning, { color: c.textSecondary }]}>{fusion.meaning}</Text>
+
+        {/* Badges row */}
+        <View style={styles.badgesRow}>
+          <View style={[styles.badge, { backgroundColor: tc.bg }]}>
+            <Text style={[styles.badgeText, { color: tc.text }]}>{typeLabel(fusion.type)}</Text>
+          </View>
+          {isAI && (
+            <View style={[styles.badge, { backgroundColor: c.tagBg }]}>
+              <Text style={[styles.badgeText, { color: c.tagText }]}>{'✦ AI 融合'}</Text>
+            </View>
+          )}
+        </View>
       </View>
 
-      {carouselContent}
-
-      {slides.length > 1 ? (
-        <View style={styles.dots}>
-          {slides.map((_, i) => (
-            <View
-              key={i}
-              style={[
-                styles.dot,
-                { backgroundColor: i === index ? c.primary : c.borderSubtle },
-              ]}
-            />
-          ))}
+      {/* Concept - the creative description */}
+      {fusion.concept && fusion.concept !== fusion.meaning ? (
+        <View style={[styles.conceptBlock, { backgroundColor: c.cardInner, borderColor: c.separator }]}>
+          <Text style={[styles.conceptText, { color: c.text }]}>
+            {fusion.concept}
+          </Text>
         </View>
       ) : null}
 
+      {/* Example Sentence */}
+      {fusion.example ? (
+        <View style={styles.infoRow}>
+          <Text style={styles.infoIcon}>{'📝'}</Text>
+          <View style={styles.infoContent}>
+            <Text style={[styles.infoLabel, { color: c.textTertiary }]}>例句 Example</Text>
+            <Text style={[styles.infoValue, { color: c.text }]}>{fusion.example}</Text>
+          </View>
+        </View>
+      ) : null}
+
+      {/* Suggested Words */}
+      {fusion.suggestedWords && fusion.suggestedWords.length > 0 ? (
+        <View style={styles.suggestedSection}>
+          <Text style={[styles.suggestedTitle, { color: c.textTertiary }]}>{'📖 相关词汇 Related'}</Text>
+          <View style={styles.suggestedTags}>
+            {fusion.suggestedWords.map((w, i) => (
+              <View key={i} style={[styles.suggestedTag, { backgroundColor: c.tagBg, borderColor: c.bubbleBorder }]}>
+                <Text style={[styles.suggestedTagText, { color: c.tagText }]}>{w}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+      ) : null}
+
+      {/* Association */}
       {fusion.association ? (
-        <Text style={[styles.association, { color: c.textSecondary }]}>
-          联想 Association: {fusion.association}
-        </Text>
+        <View style={styles.infoRow}>
+          <Text style={styles.infoIcon}>{'💡'}</Text>
+          <View style={styles.infoContent}>
+            <Text style={[styles.infoLabel, { color: c.textTertiary }]}>联想 Association</Text>
+            <Text style={[styles.infoValueSmall, { color: c.textSecondary }]}>{fusion.association}</Text>
+          </View>
+        </View>
+      ) : null}
+
+      {/* Etymology & Memory Tip */}
+      {(fusion.etymology || fusion.memoryTip) ? (
+        <View style={[styles.tipsRow, { borderTopColor: c.separator }]}>
+          {fusion.etymology ? (
+            <View style={[styles.tipBox, { backgroundColor: c.cardInner }]}>
+              <Text style={styles.tipIcon}>{'📚'}</Text>
+              <Text style={[styles.tipLabel, { color: c.textTertiary }]}>词源</Text>
+              <Text style={[styles.tipValue, { color: c.textSecondary }]}>{fusion.etymology}</Text>
+            </View>
+          ) : null}
+          {fusion.memoryTip ? (
+            <View style={[styles.tipBox, { backgroundColor: c.cardInner }]}>
+              <Text style={styles.tipIcon}>{'🧠'}</Text>
+              <Text style={[styles.tipLabel, { color: c.textTertiary }]}>记忆</Text>
+              <Text style={[styles.tipValue, { color: c.textSecondary }]}>{fusion.memoryTip}</Text>
+            </View>
+          ) : null}
+        </View>
+      ) : null}
+
+      {/* Chain fusion button */}
+      {onUseFusion ? (
+        <Pressable
+          onPress={() => onUseFusion(fusion)}
+          style={({ pressed }) => [
+            styles.chainFusionBtn,
+            {
+              backgroundColor: pressed ? c.primary : c.tagBg,
+              borderColor: c.primary,
+            },
+          ]}
+        >
+          <Text style={styles.chainFusionIcon}>{'🔗'}</Text>
+          <Text style={[styles.chainFusionText, { color: c.primary }]}>
+            {'用这个词继续融合'}
+          </Text>
+        </Pressable>
       ) : null}
     </View>
   );
@@ -202,68 +175,185 @@ export function FusionResultCard({ fusion, onClose }: FusionResultCardProps) {
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: Radius.lg,
+    borderRadius: Radius.xl,
     padding: Spacing.lg,
-    marginTop: Spacing.lg,
     overflow: 'hidden',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingBottom: Spacing.sm,
-    borderBottomWidth: 1,
-  },
-  icon: { fontSize: 26, marginRight: Spacing.sm },
-  headerText: { flex: 1 },
-  badge: { ...Typography.caption },
-  closeBtn: { padding: Spacing.xxs },
-  flatList: { flexGrow: 0 },
-  flatListContent: { paddingVertical: Spacing.md },
-  slide: {
-    marginRight: SLIDE_GAP,
-  },
-  imgWrap: {
+    borderWidth: 1,
+    maxWidth: 520,
+    alignSelf: 'center',
     width: '100%',
-    height: IMG_HEIGHT,
-    borderRadius: Radius.md,
-    overflow: 'hidden',
   },
-  imgWrapPlaceholder: {
+  closeBtn: {
+    position: 'absolute',
+    top: Spacing.sm,
+    right: Spacing.sm,
+    zIndex: 10,
+    padding: Spacing.xxs,
+  },
+  closeText: { fontSize: 26, fontWeight: '300', lineHeight: 26 },
+
+  /* Hero */
+  hero: {
+    alignItems: 'center',
+    paddingTop: Spacing.sm,
+    paddingBottom: Spacing.lg,
+  },
+  emojiCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: Spacing.md,
+    marginBottom: Spacing.md,
   },
-  imgPlaceholderText: {
-    ...Typography.title3,
+  heroEmoji: {
+    fontSize: 36,
+  },
+  heroWord: {
+    fontSize: 30,
+    fontWeight: '700',
+    letterSpacing: -0.3,
+    marginBottom: 4,
+  },
+  heroMeaning: {
+    ...Typography.callout,
     textAlign: 'center',
+    marginBottom: Spacing.sm,
   },
-  img: {
-    width: '100%',
-    height: '100%',
+  badgesRow: {
+    flexDirection: 'row',
+    gap: Spacing.xs,
   },
-  slideWord: {
-    ...Typography.title3,
-    marginTop: Spacing.sm,
+  badge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: Radius.full,
   },
-  slideMeaning: {
+  badgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+
+  /* Concept block */
+  conceptBlock: {
+    borderRadius: Radius.md,
+    padding: Spacing.md,
+    marginBottom: Spacing.md,
+    borderWidth: 1,
+  },
+  conceptText: {
     ...Typography.subhead,
-    marginTop: 4,
+    lineHeight: 24,
+    fontStyle: 'italic',
+  },
+
+  /* Info rows */
+  infoRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+    alignItems: 'flex-start',
+  },
+  infoIcon: {
+    fontSize: 16,
+    marginTop: 1,
+  },
+  infoContent: {
+    flex: 1,
+    gap: 2,
+  },
+  infoLabel: {
+    ...Typography.caption2,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  infoValue: {
+    ...Typography.subhead,
     lineHeight: 22,
   },
-  dots: {
+  infoValueSmall: {
+    ...Typography.footnote,
+    lineHeight: 18,
+  },
+
+  /* Suggested words */
+  suggestedSection: {
+    marginBottom: Spacing.md,
+  },
+  suggestedTitle: {
+    ...Typography.caption2,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: Spacing.xs,
+  },
+  suggestedTags: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: Spacing.xs,
+  },
+  suggestedTag: {
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 5,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+  },
+  suggestedTagText: {
+    fontSize: 13,
+    fontWeight: '600',
+  },
+
+  /* Tips row */
+  tipsRow: {
+    flexDirection: 'row',
+    gap: Spacing.sm,
+    paddingTop: Spacing.md,
+    borderTopWidth: 1,
+  },
+  tipBox: {
+    flex: 1,
+    borderRadius: Radius.sm,
+    padding: Spacing.sm,
+    alignItems: 'center',
+    gap: 3,
+  },
+  tipIcon: {
+    fontSize: 16,
+  },
+  tipLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  tipValue: {
+    ...Typography.caption,
+    textAlign: 'center',
+    lineHeight: 16,
+  },
+
+  /* Chain fusion button */
+  chainFusionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    marginTop: Spacing.sm,
+    marginTop: Spacing.md,
+    paddingVertical: 10,
+    paddingHorizontal: Spacing.md,
+    borderRadius: Radius.full,
+    borderWidth: 1.5,
+    ...(Platform.OS === 'web'
+      ? { cursor: 'pointer' as any, transition: 'all 0.15s ease' }
+      : {}),
   },
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
+  chainFusionIcon: {
+    fontSize: 16,
   },
-  association: {
-    ...Typography.subhead,
-    marginTop: Spacing.sm,
-    fontStyle: 'italic',
+  chainFusionText: {
+    fontSize: 13,
+    fontWeight: '600',
+    letterSpacing: 0.2,
   },
 });

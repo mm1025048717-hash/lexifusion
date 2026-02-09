@@ -1,60 +1,65 @@
 import React from 'react';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Tabs } from 'expo-router';
+import { Platform } from 'react-native';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useClientOnlyValue } from '@/components/useClientOnlyValue';
-import { subtleShadow } from '@/constants/Design';
 
 function TabBarIcon(props: {
   name: React.ComponentProps<typeof FontAwesome>['name'];
   color: string;
 }) {
-  return <FontAwesome size={21} style={{ marginBottom: -2 }} {...props} />;
+  return <FontAwesome size={20} style={{ marginBottom: -2 }} {...props} />;
 }
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const c = Colors[colorScheme ?? 'light'];
-  const shadow = subtleShadow(colorScheme ?? 'light');
 
   return (
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: c.primary,
         tabBarInactiveTintColor: c.tabIconDefault,
-        headerShown: useClientOnlyValue(false, true),
+        headerShown: false,
         tabBarStyle: {
-          backgroundColor: c.card,
-          borderTopColor: c.borderSubtle,
+          backgroundColor: c.surface,
+          borderTopColor: c.separator,
           borderTopWidth: 1,
-          paddingTop: 8,
-          height: 60,
-          ...shadow,
+          paddingTop: 6,
+          height: Platform.OS === 'web' ? 52 : 56,
+          ...(Platform.OS === 'web'
+            ? { backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)' } as any
+            : {}),
         },
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
+        tabBarLabelStyle: {
+          fontSize: 10,
+          fontWeight: '600',
+          letterSpacing: 0.2,
+        },
         tabBarItemStyle: { minWidth: 72 },
       }}
     >
       <Tabs.Screen
         name="index"
         options={{
-          title: '实验室 Lab',
+          title: '融合',
           tabBarIcon: ({ color }) => <TabBarIcon name="flask" color={color} />,
         }}
       />
       <Tabs.Screen
         name="lexicon"
         options={{
-          title: '图鉴 Lexicon',
+          title: '图鉴',
           tabBarIcon: ({ color }) => <TabBarIcon name="book" color={color} />,
         }}
       />
       <Tabs.Screen
         name="profile"
         options={{
-          title: '我的 Profile',
+          title: '我的',
           tabBarIcon: ({ color }) => <TabBarIcon name="user" color={color} />,
         }}
       />
