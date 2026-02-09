@@ -1,19 +1,11 @@
 /**
  * Fusion store hook: manages discovered fusions and favorites.
- * Strategy: API-first with local cache fallback.
- *  - Reads from API (authoritative source)
- *  - Caches results locally for offline access
- *  - Falls back to local cache when API is unreachable
+ * Strategy: 纯本地存储（无后端数据库）
+ *  - 所有数据保存在本地 AsyncStorage
+ *  - 支持离线使用
  */
 import { useState, useEffect, useCallback } from 'react';
-import {
-  apiGetDiscoveries,
-  apiToggleFavorite,
-  apiRecordDiscovery,
-  DiscoveryDTO,
-  FusionDTO,
-} from '@/lib/api';
-import { ensureAuth } from '@/lib/auth';
+import { FusionDTO } from '@/lib/api';
 import {
   getDiscoveredFusions as getLocalDiscoveries,
   addDiscoveredFusion as addLocalDiscovery,
@@ -41,29 +33,9 @@ export interface DiscoveryItem {
   isFavorite: boolean;
 }
 
-function apiDiscoveryToItem(d: DiscoveryDTO): DiscoveryItem {
-  return {
-    discoveryId: d.discoveryId,
-    id: d.fusion.id,
-    from: d.fusion.from,
-    result: d.fusion.result,
-    meaning: d.fusion.meaning,
-    type: d.fusion.type,
-    example: d.fusion.example,
-    icon: d.fusion.icon,
-    concept: d.fusion.concept,
-    suggestedWords: d.fusion.suggestedWords,
-    association: d.fusion.association,
-    imageUrl: d.fusion.imageUrl,
-    imageUrls: d.fusion.imageUrls,
-    discoveredAt: new Date(d.discoveredAt).getTime(),
-    isFavorite: d.isFavorite,
-  };
-}
-
 function localFusionToItem(f: StoredFusion, favoriteIds: string[]): DiscoveryItem {
   return {
-    discoveryId: f.id, // use fusion id as discovery id for local fallback
+    discoveryId: f.id, // use fusion id as discovery id
     id: f.id,
     from: f.from as [string, string],
     result: f.result,
@@ -84,31 +56,19 @@ function localFusionToItem(f: StoredFusion, favoriteIds: string[]): DiscoveryIte
 export function useFusionStore() {
   const [discovered, setDiscovered] = useState<DiscoveryItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isOnline, setIsOnline] = useState(true);
 
   const refresh = useCallback(async () => {
     setLoading(true);
     try {
-      // Try API first
-      await ensureAuth();
-      const apiDiscoveries = await apiGetDiscoveries();
-      const items = apiDiscoveries.map(apiDiscoveryToItem);
+      // 直接使用本地存储
+      const [localList, localFavIds] = await Promise.all([
+        getLocalDiscoveries(),
+        getLocalFavoriteIds(),
+      ]);
+      const items = localList.map((f) => localFusionToItem(f, localFavIds));
       setDiscovered(items);
-      setIsOnline(true);
     } catch {
-      // Fallback to local storage
-      try {
-        const [localList, localFavIds] = await Promise.all([
-          getLocalDiscoveries(),
-          getLocalFavoriteIds(),
-        ]);
-        const items = localList.map((f) => localFusionToItem(f, localFavIds));
-        setDiscovered(items);
-        setIsOnline(false);
-      } catch {
-        setDiscovered([]);
-        setIsOnline(false);
-      }
+      setDiscovered([]);
     }
     setLoading(false);
   }, []);
@@ -117,8 +77,8 @@ export function useFusionStore() {
     refresh();
   }, [refresh]);
 
-  const addDiscovered = useCallback(async (fusion: FusionDTO, wordAId: string, wordBId: string) => {
-    // Always save locally first
+  const addDiscovered = useCallback(async (fusion: FusionDTO, _wordAId: string, _wordBId: string) => {
+    // 保存到本地存储
     const localFusion = {
       id: fusion.id,
       from: fusion.from as [string, string],
@@ -134,39 +94,20 @@ export function useFusionStore() {
       imageUrls: fusion.imageUrls ?? undefined,
     };
     await addLocalDiscovery(localFusion);
-
-    // Then try API
-    try {
-      await ensureAuth();
-      await apiRecordDiscovery(wordAId, wordBId, fusion);
-    } catch {
-      // silent fail, local save is the backup
-    }
-
     await refresh();
   }, [refresh]);
 
   const toggleFavorite = useCallback(async (discoveryId: string) => {
-    try {
-      await ensureAuth();
-      const isFavorite = await apiToggleFavorite(discoveryId);
-      setDiscovered((prev) =>
-        prev.map((d) =>
-          d.discoveryId === discoveryId ? { ...d, isFavorite } : d
-        )
-      );
-      return isFavorite;
-    } catch {
-      // Fallback: toggle locally by fusion id
-      await toggleLocalFavorite(discoveryId);
-      setDiscovered((prev) =>
-        prev.map((d) =>
-          d.discoveryId === discoveryId ? { ...d, isFavorite: !d.isFavorite } : d
-        )
-      );
-      return false;
-    }
-  }, []);
+    // 使用本地存储切换收藏状态
+    await toggleLocalFavorite(discoveryId);
+    setDiscovered((prev) =>
+      prev.map((d) =>
+        d.discoveryId === discoveryId ? { ...d, isFavorite: !d.isFavorite } : d
+      )
+    );
+    const item = discovered.find((d) => d.discoveryId === discoveryId);
+    return item ? !item.isFavorite : false;
+  }, [discovered]);
 
   const favorites = discovered.filter((d) => d.isFavorite);
   const favoriteIds = favorites.map((d) => d.id);
@@ -176,7 +117,6 @@ export function useFusionStore() {
     favorites,
     favoriteIds,
     loading,
-    isOnline,
     refresh,
     addDiscovered,
     toggleFavorite,
