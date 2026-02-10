@@ -78,7 +78,7 @@ function buildFusionPrompt(wordA: WordInput, wordB: WordInput): string {
 - association：联想关键词
 - suggestedWords：4个相关真实词汇
 - example：自然英语例句
-- icon：最能代表的emoji
+- icon：【必须是单个emoji】最能代表融合结果的1个emoji（如🔥、🌊、🦋），绝对不能是多个emoji拼接
 - type：compound/phrase/creative
 - etymology：词源小知识（可选）
 - memoryTip：记忆技巧（可选）
@@ -107,8 +107,21 @@ function buildFusionPrompt(wordA: WordInput, wordB: WordInput): string {
 只输出 JSON，不要其他内容。`;
 }
 
+// ─── 提取第一个 emoji ──────────────────────────────────────────
+function extractFirstEmoji(str: string): string {
+  if (!str) return '✨';
+  // 匹配 emoji 的正则（包括组合 emoji）
+  const emojiRegex = /(\p{Emoji_Presentation}|\p{Emoji}\uFE0F|\p{Emoji_Modifier_Base}\p{Emoji_Modifier}?)/u;
+  const match = str.match(emojiRegex);
+  return match ? match[0] : '✨';
+}
+
 // ─── 验证单个结果 ──────────────────────────────────────────────
 function validateResult(parsed: any, wordA: WordInput, wordB: WordInput): AIFusionResult {
+  // 确保只取第一个 emoji，避免多个 emoji 拼接
+  const rawIcon = parsed.icon || '✨';
+  const singleIcon = extractFirstEmoji(rawIcon);
+  
   return {
     result: parsed.result || `${wordA.word} ${wordB.word}`,
     meaning: parsed.meaning || `${wordA.meaning}与${wordB.meaning}的融合`,
@@ -116,7 +129,7 @@ function validateResult(parsed: any, wordA: WordInput, wordB: WordInput): AIFusi
     association: parsed.association || '创意融合',
     suggestedWords: Array.isArray(parsed.suggestedWords) ? parsed.suggestedWords.slice(0, 5) : [],
     example: parsed.example || `This is a fusion of ${wordA.word} and ${wordB.word}.`,
-    icon: parsed.icon || '✨',
+    icon: singleIcon,
     type: (['compound', 'phrase', 'creative'].includes(parsed.type) ? parsed.type : 'creative') as AIFusionResult['type'],
     etymology: parsed.etymology || undefined,
     memoryTip: parsed.memoryTip || undefined,

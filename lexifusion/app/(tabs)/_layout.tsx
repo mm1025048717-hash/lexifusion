@@ -1,16 +1,33 @@
 import React from 'react';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import { Tabs } from 'expo-router';
-import { Platform } from 'react-native';
+import { Platform, Text, View } from 'react-native';
 
 import Colors from '@/constants/Colors';
 import { useColorScheme } from '@/components/useColorScheme';
 import { useClientOnlyValue } from '@/components/useClientOnlyValue';
 
+// Web 端使用 emoji 作为备用图标，解决字体加载问题
+const webIconMap: Record<string, string> = {
+  flask: '🧪',
+  book: '📖',
+  user: '👤',
+};
+
 function TabBarIcon(props: {
   name: React.ComponentProps<typeof FontAwesome>['name'];
   color: string;
 }) {
+  // Web 端使用 emoji 备用方案
+  if (Platform.OS === 'web') {
+    const emoji = webIconMap[props.name as string] || '•';
+    return (
+      <Text style={{ fontSize: 18, marginBottom: -2 }}>
+        {emoji}
+      </Text>
+    );
+  }
+  
   return <FontAwesome size={20} style={{ marginBottom: -2 }} {...props} />;
 }
 
