@@ -338,7 +338,85 @@ async function main() {
   }
 
   const wordCount = await prisma.word.count();
-  console.log(`✅ Seed complete: ${wordCount} words in unified lexicon`);
+  console.log(`  📦 Inserting preset fusion rules...`);
+
+  // 预设融合规则：常见组合的直观结果（优先于 AI，避免牵强联想）
+  const PRESET_FUSIONS: Array<{
+    wordAId: string;
+    wordBId: string;
+    result: string;
+    meaning: string;
+    type: string;
+    concept: string;
+    association: string;
+    suggestedWords: string[];
+    example: string;
+    icon: string;
+  }> = [
+    {
+      wordAId: 'w-cheese',
+      wordBId: 'w-chess',
+      result: 'cheeseboard',
+      meaning: '奶酪板',
+      type: 'compound',
+      concept: '奶酪与象棋的融合——棋盘(board)与奶酪板(cheeseboard)的联想，奶酪拼盘常用木板盛放',
+      association: '板、拼盘、棋盘',
+      suggestedWords: ['cheeseboard', 'chessboard', 'platter', 'board', 'slice'],
+      example: 'We served a cheese board at the party.',
+      icon: '🧀',
+    },
+    {
+      wordAId: 'w-sun',
+      wordBId: 'w-flower',
+      result: 'sunflower',
+      meaning: '向日葵',
+      type: 'compound',
+      concept: '太阳与花的融合——向日葵朝向太阳生长',
+      association: '阳光、金色',
+      suggestedWords: ['sunflower', 'sunrise', 'bloom', 'petal', 'gold'],
+      example: 'Sunflowers turn toward the sun.',
+      icon: '🌻',
+    },
+  ];
+
+  for (const f of PRESET_FUSIONS) {
+    const [idA, idB] = [f.wordAId, f.wordBId].sort();
+    const ruleId = `preset-${idA}-${idB}`;
+    try {
+      await prisma.fusionRule.upsert({
+        where: {
+          wordAId_wordBId: { wordAId: idA, wordBId: idB },
+        },
+        create: {
+          id: ruleId,
+          wordAId: idA,
+          wordBId: idB,
+          result: f.result,
+          meaning: f.meaning,
+          type: f.type,
+          concept: f.concept,
+          association: f.association,
+          suggestedWords: JSON.stringify(f.suggestedWords),
+          example: f.example,
+          icon: f.icon,
+        },
+        update: {
+          result: f.result,
+          meaning: f.meaning,
+          concept: f.concept,
+          association: f.association,
+          suggestedWords: JSON.stringify(f.suggestedWords),
+          example: f.example,
+          icon: f.icon,
+        },
+      });
+    } catch (e) {
+      console.warn(`  ⚠️ Skip preset ${idA}+${idB} (word may not exist):`, (e as Error).message);
+    }
+  }
+
+  const ruleCount = await prisma.fusionRule.count();
+  console.log(`✅ Seed complete: ${wordCount} words, ${ruleCount} preset fusion rules`);
 }
 
 main()

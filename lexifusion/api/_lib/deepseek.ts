@@ -3,9 +3,10 @@
  * 使用 openai SDK 对接 DeepSeek API，返回3个融合结果
  */
 import OpenAI from 'openai';
+import { DEEPSEEK_FALLBACK_KEY } from '../config';
 
-// ─── 配置 ──────────────────────────────────────────────────────
-const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY || '';
+// ─── 配置（优先环境变量，否则使用 config.ts 回退，部署时无需在 Vercel 配置）───
+const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY || DEEPSEEK_FALLBACK_KEY;
 const DEEPSEEK_BASE_URL = process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com';
 
 let client: OpenAI | null = null;

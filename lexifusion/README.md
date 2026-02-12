@@ -85,3 +85,14 @@ git push -u origin main
 
 - 推送到 GitHub 时如提示登录，可使用 **Personal Access Token** 作为密码  
 - 创建 Token：GitHub → Settings → Developer settings → [Personal access tokens](https://github.com/settings/tokens)
+
+---
+
+## 部署到 Vercel（推荐）
+
+1. 在 [Vercel](https://vercel.com) 中 **Import** 本仓库  
+2. **Root Directory** 设为 `lexifusion`（若仓库根目录即为此项目则留空）  
+3. 使用默认配置：
+   - **Build Command:** `npm run build:web`
+   - **Output Directory:** `dist`
+4. **DeepSeek 零配置**：在 `api/config.ts` 中填入你的 `DEEPSEEK_API_KEY`，部署后即可直接使用，无需在 Vercel 环境变量中配置。

@@ -30,6 +30,8 @@ type FusionResultCardProps = {
   onClose?: () => void;
   /** Called when user wants to use this fusion result for further fusion */
   onUseFusion?: (fusion: FusionData) => void;
+  /** Hint for multi-result carousel, e.g. "优先推荐" */
+  indexHint?: string;
 };
 
 function typeLabel(type: string) {
@@ -49,7 +51,7 @@ function typeColor(type: string) {
   }
 }
 
-export function FusionResultCard({ fusion, onClose, onUseFusion }: FusionResultCardProps) {
+export function FusionResultCard({ fusion, onClose, onUseFusion, indexHint }: FusionResultCardProps) {
   const colorScheme = useColorScheme();
   const c = Colors[colorScheme ?? 'light'];
   const shadow = elevatedShadow(colorScheme ?? 'light');
@@ -75,6 +77,11 @@ export function FusionResultCard({ fusion, onClose, onUseFusion }: FusionResultC
 
         {/* Badges row */}
         <View style={styles.badgesRow}>
+          {indexHint ? (
+            <View style={[styles.badge, { backgroundColor: c.primary + '22' }]}>
+              <Text style={[styles.badgeText, { color: c.primary }]}>{`① ${indexHint}`}</Text>
+            </View>
+          ) : null}
           <View style={[styles.badge, { backgroundColor: tc.bg }]}>
             <Text style={[styles.badgeText, { color: tc.text }]}>{typeLabel(fusion.type)}</Text>
           </View>

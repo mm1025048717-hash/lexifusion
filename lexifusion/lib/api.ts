@@ -7,11 +7,14 @@
 import { Platform } from 'react-native';
 import { getToken } from './auth';
 
-// In dev, web uses localhost directly; native uses the machine IP
-const DEV_API_BASE = Platform.select({
-  web: 'http://localhost:3001',
-  default: 'http://localhost:3001', // change to your machine IP for real device testing
-});
+// In dev, web 使用当前页面的 host（避免 192.168.x.x:8081 访问时 localhost 指向错误设备）
+function getDevApiBase(): string {
+  if (Platform.OS === 'web' && typeof window !== 'undefined' && window.location?.hostname) {
+    return `http://${window.location.hostname}:3001`;
+  }
+  return 'http://localhost:3001';
+}
+const DEV_API_BASE = getDevApiBase();
 
 // 生产环境使用相对路径（同域名 Vercel Serverless Function）
 const PROD_API_BASE = '';
@@ -211,8 +214,9 @@ export async function apiResolveFusionByText(
   wordA: { word: string; meaning: string; category: string },
   wordB: { word: string; meaning: string; category: string }
 ): Promise<FusionDTO[]> {
-  // 使用 Vercel Serverless Function
-  const data = await request<{ fusions: FusionDTO[]; fusion: FusionDTO }>('/api/fusion', {
+  // 本地开发用 Express 的 /api/fusions/resolve-by-text，生产用 Vercel /api/fusion
+  const endpoint = __DEV__ ? '/api/fusions/resolve-by-text' : '/api/fusion';
+  const data = await request<{ fusions: FusionDTO[]; fusion: FusionDTO }>(endpoint, {
     method: 'POST',
     body: { wordA, wordB },
   });

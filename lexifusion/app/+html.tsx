@@ -10,7 +10,7 @@ export default function Root({ children }: { children: React.ReactNode }) {
       <head>
         <meta charSet="utf-8" />
         <meta httpEquiv="X-UA-Compatible" content="IE=edge" />
-        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+        <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no, viewport-fit=cover" />
         
         {/* FontAwesome 图标字体 - 确保图标正确显示 */}
         <link
@@ -39,6 +39,13 @@ export default function Root({ children }: { children: React.ReactNode }) {
 }
 
 const responsiveBackground = `
+html, body {
+  margin: 0;
+  padding: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow-x: hidden;
+}
 body {
   background-color: #fff;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
@@ -53,4 +60,11 @@ body {
 /* 确保 FontAwesome 图标正确显示 */
 .fa, .fas, .far, .fal, .fab {
   font-family: "Font Awesome 6 Free", "FontAwesome" !important;
+}
+/* 底部 tab 栏：防止 overflow 裁切菜单文字 */
+[data-rn-btm-tabs], [class*="BottomTabBar"], [class*="tab-bar"] {
+  overflow: visible !important;
+}
+nav[role="tablist"] {
+  overflow: visible !important;
 }`;

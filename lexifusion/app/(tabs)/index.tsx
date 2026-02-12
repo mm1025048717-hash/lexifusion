@@ -23,6 +23,7 @@ import { ensureAuth } from '@/lib/auth';
 import {
   apiSearchWords,
   apiResolveFusionByText,
+  apiResolveFusionMulti,
   WordItem,
   FusionDTO,
 } from '@/lib/api';
@@ -116,17 +117,17 @@ function FusionCarousel({
   if (fusions.length === 1) {
     return (
       <RNAnimated.View style={{ opacity, transform: [{ scale }, { translateY }], width: '100%' }}>
-        <FusionResultCard fusion={fusions[0]} onClose={onClose} onUseFusion={onUseFusion} />
+        <FusionResultCard fusion={fusions[0]} onClose={onClose} onUseFusion={onUseFusion} indexHint="优先推荐" />
       </RNAnimated.View>
     );
   }
 
   return (
     <RNAnimated.View style={{ opacity, transform: [{ scale }, { translateY }], width: '100%' }}>
-      {/* Header: 滑动提示 */}
+      {/* Header: 滑动提示 + 选更符合直觉的结果 */}
       <View style={carouselStyles.header}>
         <Text style={[carouselStyles.headerText, { color: colors.textTertiary }]}>
-          {'左右滑动查看更多融合结果'}
+          {'左右滑动查看 · 第 1 个通常最直观，可选用词继续融合'}
         </Text>
         <Text style={[carouselStyles.counter, { color: colors.primary }]}>
           {activeIndex + 1}/{fusions.length}
@@ -156,6 +157,7 @@ function FusionCarousel({
               fusion={fusion}
               onClose={onClose}
               onUseFusion={onUseFusion}
+              indexHint={idx === 0 ? '优先推荐' : undefined}
             />
           </View>
         ))}
@@ -337,25 +339,32 @@ export default function HomeScreen() {
     return result;
   }, [allWords, category, query]);
 
-  // Fusion logic — 统一使用文本 API（Vercel Serverless Function）
+  // Fusion logic — 真实词用 ID 接口（走预设规则+AI），虚拟词用文本 API
   const doFusion = useCallback(
     async (wA: SlotWord, wB: SlotWord) => {
       setResolving(true);
       setLastFusions([]);
       try {
-        // 统一使用文本 API，直接调用 DeepSeek
-        const fusions = await apiResolveFusionByText(
-          {
-            word: wA.word,
-            meaning: wA.virtualMeaning || wA.meaning,
-            category: wA.virtualCategory || wA.category || 'other',
-          },
-          {
-            word: wB.word,
-            meaning: wB.virtualMeaning || wB.meaning,
-            category: wB.virtualCategory || wB.category || 'other',
-          }
-        );
+        let fusions: FusionDTO[];
+        const bothReal = !wA.isVirtual && !wB.isVirtual;
+        if (bothReal && wA.id && wB.id && !wA.id.startsWith('virtual-') && !wB.id.startsWith('virtual-')) {
+          // 真实词：优先走预设规则 + AI 多结果
+          fusions = await apiResolveFusionMulti(wA.id, wB.id);
+        } else {
+          // 虚拟词：用文本 API（链式融合）
+          fusions = await apiResolveFusionByText(
+            {
+              word: wA.word,
+              meaning: wA.virtualMeaning || wA.meaning,
+              category: wA.virtualCategory || wA.category || 'other',
+            },
+            {
+              word: wB.word,
+              meaning: wB.virtualMeaning || wB.meaning,
+              category: wB.virtualCategory || wB.category || 'other',
+            }
+          );
+        }
 
         setLastFusions(fusions);
         // Record the first discovery (本地存储)

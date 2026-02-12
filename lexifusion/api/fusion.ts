@@ -5,9 +5,10 @@
  */
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import OpenAI from 'openai';
+import { DEEPSEEK_FALLBACK_KEY } from './config';
 
-// ─── 配置 ──────────────────────────────────────────────────────
-const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY || '';
+// ─── 配置（优先环境变量，否则使用 config.ts 中的回退值，部署时无需在 Vercel 配置）───
+const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY || DEEPSEEK_FALLBACK_KEY;
 const DEEPSEEK_BASE_URL = process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com';
 
 // ─── 类型 ──────────────────────────────────────────────────────
