@@ -2,12 +2,11 @@
  * Vercel Serverless Function: DeepSeek AI 词汇融合
  * POST /api/fusion
  * Body: { wordA: { word, meaning, category }, wordB: { word, meaning, category } }
- * 优先 DeepSeek AI，失败时自动回退到模板融合
+ * 优先 DeepSeek AI，失败时自动回退到内联模板融合
  */
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import OpenAI from 'openai';
 import { DEEPSEEK_FALLBACK_KEY } from './config';
-import { resolveFusionByText } from './_lib/fusion';
 
 // ─── 配置（优先环境变量，否则使用 config.ts 中的回退值，部署时无需在 Vercel 配置）───
 const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY || DEEPSEEK_FALLBACK_KEY;
@@ -212,6 +211,29 @@ function toFusionDTO(result: AIFusionResult, wordA: WordInput, wordB: WordInput,
   };
 }
 
+// ─── 内联模板回退（无外部依赖，确保 AI 失败时必有结果）───
+function templateFallback(wordA: WordInput, wordB: WordInput): FusionDTO {
+  const key = [wordA.word, wordB.word].sort().join('+');
+  const result = `${wordA.word}${wordB.word}`.toLowerCase();
+  return {
+    id: `template-${key}`,
+    from: [`virtual-${wordA.word.toLowerCase()}`, `virtual-${wordB.word.toLowerCase()}`],
+    result,
+    meaning: `${wordA.meaning}+${wordB.meaning}`,
+    type: 'creative',
+    icon: '✨',
+    concept: `${wordA.meaning}与${wordB.meaning}的创意融合`,
+    suggestedWords: [],
+    association: '创意融合',
+    example: `This is a fusion of ${wordA.word} and ${wordB.word}.`,
+    etymology: undefined,
+    memoryTip: undefined,
+    imageUrl: null,
+    imageUrls: null,
+    isCreative: true,
+  };
+}
+
 // ─── Vercel Handler ──────────────────────────────────────────
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   // CORS headers
@@ -251,19 +273,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       category: wordB.category || 'other',
     };
 
-    // 优先 DeepSeek AI，失败时自动回退到模板融合
+    // 优先 DeepSeek AI，失败时自动回退到内联模板
     let fusions: FusionDTO[];
     try {
       const results = await aiFusionMulti(inputA, inputB);
       fusions = results.map((r, i) => toFusionDTO(r, inputA, inputB, i));
     } catch (aiErr: any) {
       console.warn('[api/fusion] DeepSeek failed, using template fallback:', aiErr.message);
-      const fallbackResults = await resolveFusionByText(inputA, inputB);
-      fusions = fallbackResults.map((r) => ({
-        ...r,
-        imageUrl: null,
-        imageUrls: null,
-      })) as FusionDTO[];
+      fusions = [templateFallback(inputA, inputB)];
     }
 
     return res.status(200).json({
