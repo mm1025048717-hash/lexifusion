@@ -2,10 +2,12 @@
  * Vercel Serverless Function: DeepSeek AI 词汇融合
  * POST /api/fusion
  * Body: { wordA: { word, meaning, category }, wordB: { word, meaning, category } }
+ * 优先 DeepSeek AI，失败时自动回退到模板融合
  */
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 import OpenAI from 'openai';
 import { DEEPSEEK_FALLBACK_KEY } from './config';
+import { resolveFusionByText } from './_lib/fusion';
 
 // ─── 配置（优先环境变量，否则使用 config.ts 中的回退值，部署时无需在 Vercel 配置）───
 const DEEPSEEK_API_KEY = process.env.DEEPSEEK_API_KEY || DEEPSEEK_FALLBACK_KEY;
@@ -237,21 +239,32 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    const inputA: WordInput = {
+    const inputA = {
       word: wordA.word,
       meaning: wordA.meaning || '',
       category: wordA.category || 'other',
     };
 
-    const inputB: WordInput = {
+    const inputB = {
       word: wordB.word,
       meaning: wordB.meaning || '',
       category: wordB.category || 'other',
     };
 
-    // Call DeepSeek AI
-    const results = await aiFusionMulti(inputA, inputB);
-    const fusions = results.map((r, i) => toFusionDTO(r, inputA, inputB, i));
+    // 优先 DeepSeek AI，失败时自动回退到模板融合
+    let fusions: FusionDTO[];
+    try {
+      const results = await aiFusionMulti(inputA, inputB);
+      fusions = results.map((r, i) => toFusionDTO(r, inputA, inputB, i));
+    } catch (aiErr: any) {
+      console.warn('[api/fusion] DeepSeek failed, using template fallback:', aiErr.message);
+      const fallbackResults = await resolveFusionByText(inputA, inputB);
+      fusions = fallbackResults.map((r) => ({
+        ...r,
+        imageUrl: null,
+        imageUrls: null,
+      })) as FusionDTO[];
+    }
 
     return res.status(200).json({
       fusion: fusions[0],
